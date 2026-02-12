@@ -1,5 +1,5 @@
 // Copyright The OpenTelemetry Authors
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
 
 package mssqlexporter
 
@@ -38,7 +38,7 @@ func newMSSQLExporter(cfg *Config, logger *zap.Logger) (*mssqlExporter, error) {
 
 // start opens the database connection.
 func (e *mssqlExporter) start(ctx context.Context, _ component.Host) error {
-	db, err := sql.Open("sqlserver", e.cfg.ConnectionString)
+	db, err := sql.Open("sqlserver", e.cfg.GetConnectionString())
 	if err != nil {
 		return fmt.Errorf("failed to open database connection: %w", err)
 	}
@@ -192,7 +192,7 @@ func (e *mssqlExporter) insertResource(ctx context.Context, tx *sql.Tx, resource
 
 	var resourceID int64
 	err := tx.QueryRowContext(ctx,
-		"INSERT INTO Resources (ServiceName) OUTPUT INSERTED.ResourceId VALUES (@p1)",
+		fmt.Sprintf("INSERT INTO %s (ServiceName) OUTPUT INSERTED.ResourceId VALUES (@p1)", e.cfg.TableName("Resources")),
 		serviceName,
 	).Scan(&resourceID)
 	if err != nil {
@@ -220,8 +220,8 @@ func (e *mssqlExporter) insertResourceAttribute(ctx context.Context, tx *sql.Tx,
 	stringVal, intVal, doubleVal, boolVal := extractAttributeValues(value)
 
 	_, err := tx.ExecContext(ctx,
-		`INSERT INTO ResourceAttributes (ResourceId, AttrKey, StringValue, IntValue, DoubleValue, BoolValue)
-		 VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`,
+		fmt.Sprintf(`INSERT INTO %s (ResourceId, AttrKey, StringValue, IntValue, DoubleValue, BoolValue)
+		 VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`, e.cfg.TableName("ResourceAttributes")),
 		resourceID, key, stringVal, intVal, doubleVal, boolVal,
 	)
 	return err
@@ -257,8 +257,8 @@ func (e *mssqlExporter) insertSpans(ctx context.Context, tx *sql.Tx, resourceID 
 		}
 
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO Spans (TraceId, SpanId, ParentSpanId, ResourceId, SpanName, SpanKind, StartTime, EndTime, DurationNs, StatusCode, StatusMessage, TraceState)
-			 VALUES (@p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12)`,
+			fmt.Sprintf(`INSERT INTO %s (TraceId, SpanId, ParentSpanId, ResourceId, SpanName, SpanKind, StartTime, EndTime, DurationNs, StatusCode, StatusMessage, TraceState)
+			 VALUES (@p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12)`, e.cfg.TableName("Spans")),
 			traceID[:], spanID[:], parentSpanIDBytes, resourceID, span.Name(), int(span.Kind()),
 			startTime, endTime, durationNs, int(span.Status().Code()), statusMessage, traceState,
 		)
@@ -291,8 +291,8 @@ func (e *mssqlExporter) insertSpanAttributes(ctx context.Context, tx *sql.Tx, tr
 		stringVal, intVal, doubleVal, boolVal := extractAttributeValues(value)
 
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO SpanAttributes (TraceId, SpanId, AttrKey, StringValue, IntValue, DoubleValue, BoolValue)
-			 VALUES (@p1, @p2, @p3, @p4, @p5, @p6, @p7)`,
+			fmt.Sprintf(`INSERT INTO %s (TraceId, SpanId, AttrKey, StringValue, IntValue, DoubleValue, BoolValue)
+			 VALUES (@p1, @p2, @p3, @p4, @p5, @p6, @p7)`, e.cfg.TableName("SpanAttributes")),
 			traceID[:], spanID[:], key, stringVal, intVal, doubleVal, boolVal,
 		)
 		if err != nil {
@@ -312,7 +312,7 @@ func (e *mssqlExporter) insertSpanEvents(ctx context.Context, tx *sql.Tx, traceI
 
 		var eventID int64
 		err := tx.QueryRowContext(ctx,
-			`INSERT INTO SpanEvents (TraceId, SpanId, EventName, EventTime) OUTPUT INSERTED.EventId VALUES (@p1, @p2, @p3, @p4)`,
+			fmt.Sprintf(`INSERT INTO %s (TraceId, SpanId, EventName, EventTime) OUTPUT INSERTED.EventId VALUES (@p1, @p2, @p3, @p4)`, e.cfg.TableName("SpanEvents")),
 			traceID[:], spanID[:], event.Name(), event.Timestamp().AsTime(),
 		).Scan(&eventID)
 		if err != nil {
@@ -338,8 +338,8 @@ func (e *mssqlExporter) insertSpanEventAttributes(ctx context.Context, tx *sql.T
 		stringVal, intVal, doubleVal, boolVal := extractAttributeValues(value)
 
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO SpanEventAttributes (EventId, AttrKey, StringValue, IntValue, DoubleValue, BoolValue)
-			 VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`,
+			fmt.Sprintf(`INSERT INTO %s (EventId, AttrKey, StringValue, IntValue, DoubleValue, BoolValue)
+			 VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`, e.cfg.TableName("SpanEventAttributes")),
 			eventID, key, stringVal, intVal, doubleVal, boolVal,
 		)
 		if err != nil {
@@ -381,8 +381,8 @@ func (e *mssqlExporter) insertLogs(ctx context.Context, tx *sql.Tx, resourceID i
 
 		var logID int64
 		err := tx.QueryRowContext(ctx,
-			`INSERT INTO Logs (ResourceId, TraceId, SpanId, Timestamp, SeverityNumber, SeverityText, Body)
-			 OUTPUT INSERTED.LogId VALUES (@p1, @p2, @p3, @p4, @p5, @p6, @p7)`,
+			fmt.Sprintf(`INSERT INTO %s (ResourceId, TraceId, SpanId, Timestamp, SeverityNumber, SeverityText, Body)
+			 OUTPUT INSERTED.LogId VALUES (@p1, @p2, @p3, @p4, @p5, @p6, @p7)`, e.cfg.TableName("Logs")),
 			resourceID, traceIDBytes, spanIDBytes, timestamp, int(logRecord.SeverityNumber()), severityText, body,
 		).Scan(&logID)
 		if err != nil {
@@ -409,8 +409,8 @@ func (e *mssqlExporter) insertLogAttributes(ctx context.Context, tx *sql.Tx, log
 		stringVal, intVal, doubleVal, boolVal := extractAttributeValues(value)
 
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO LogAttributes (LogId, AttrKey, StringValue, IntValue, DoubleValue, BoolValue)
-			 VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`,
+			fmt.Sprintf(`INSERT INTO %s (LogId, AttrKey, StringValue, IntValue, DoubleValue, BoolValue)
+			 VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`, e.cfg.TableName("LogAttributes")),
 			logID, key, stringVal, intVal, doubleVal, boolVal,
 		)
 		if err != nil {
@@ -440,8 +440,8 @@ func (e *mssqlExporter) insertMetrics(ctx context.Context, tx *sql.Tx, resourceI
 
 		var metricID int64
 		err := tx.QueryRowContext(ctx,
-			`INSERT INTO Metrics (ResourceId, MetricName, MetricType, Unit, Description)
-			 OUTPUT INSERTED.MetricId VALUES (@p1, @p2, @p3, @p4, @p5)`,
+			fmt.Sprintf(`INSERT INTO %s (ResourceId, MetricName, MetricType, Unit, Description)
+			 OUTPUT INSERTED.MetricId VALUES (@p1, @p2, @p3, @p4, @p5)`, e.cfg.TableName("Metrics")),
 			resourceID, metric.Name(), metricType, unit, description,
 		).Scan(&metricID)
 		if err != nil {
@@ -510,8 +510,8 @@ func (e *mssqlExporter) insertNumberDataPoints(ctx context.Context, tx *sql.Tx, 
 
 		var dataPointID int64
 		err := tx.QueryRowContext(ctx,
-			`INSERT INTO MetricDataPoints (MetricId, Timestamp, ValueDouble, ValueLong, Count, Sum)
-			 OUTPUT INSERTED.DataPointId VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`,
+			fmt.Sprintf(`INSERT INTO %s (MetricId, Timestamp, ValueDouble, ValueLong, Count, Sum)
+			 OUTPUT INSERTED.DataPointId VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`, e.cfg.TableName("MetricDataPoints")),
 			metricID, dp.Timestamp().AsTime(), valueDouble, valueLong, nil, nil,
 		).Scan(&dataPointID)
 		if err != nil {
@@ -533,8 +533,8 @@ func (e *mssqlExporter) insertHistogramDataPoints(ctx context.Context, tx *sql.T
 
 		var dataPointID int64
 		err := tx.QueryRowContext(ctx,
-			`INSERT INTO MetricDataPoints (MetricId, Timestamp, ValueDouble, ValueLong, Count, Sum)
-			 OUTPUT INSERTED.DataPointId VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`,
+			fmt.Sprintf(`INSERT INTO %s (MetricId, Timestamp, ValueDouble, ValueLong, Count, Sum)
+			 OUTPUT INSERTED.DataPointId VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`, e.cfg.TableName("MetricDataPoints")),
 			metricID, dp.Timestamp().AsTime(), nil, nil, int64(dp.Count()), dp.Sum(),
 		).Scan(&dataPointID)
 		if err != nil {
@@ -556,8 +556,8 @@ func (e *mssqlExporter) insertSummaryDataPoints(ctx context.Context, tx *sql.Tx,
 
 		var dataPointID int64
 		err := tx.QueryRowContext(ctx,
-			`INSERT INTO MetricDataPoints (MetricId, Timestamp, ValueDouble, ValueLong, Count, Sum)
-			 OUTPUT INSERTED.DataPointId VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`,
+			fmt.Sprintf(`INSERT INTO %s (MetricId, Timestamp, ValueDouble, ValueLong, Count, Sum)
+			 OUTPUT INSERTED.DataPointId VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`, e.cfg.TableName("MetricDataPoints")),
 			metricID, dp.Timestamp().AsTime(), nil, nil, int64(dp.Count()), dp.Sum(),
 		).Scan(&dataPointID)
 		if err != nil {
@@ -583,8 +583,8 @@ func (e *mssqlExporter) insertMetricDataPointAttributes(ctx context.Context, tx 
 		stringVal, intVal, doubleVal, boolVal := extractAttributeValues(value)
 
 		_, err := tx.ExecContext(ctx,
-			`INSERT INTO MetricDataPointAttributes (DataPointId, AttrKey, StringValue, IntValue, DoubleValue, BoolValue)
-			 VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`,
+			fmt.Sprintf(`INSERT INTO %s (DataPointId, AttrKey, StringValue, IntValue, DoubleValue, BoolValue)
+			 VALUES (@p1, @p2, @p3, @p4, @p5, @p6)`, e.cfg.TableName("MetricDataPointAttributes")),
 			dataPointID, key, stringVal, intVal, doubleVal, boolVal,
 		)
 		if err != nil {

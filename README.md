@@ -8,7 +8,14 @@ This exporter allows the OpenTelemetry Collector to export telemetry data (trace
 exporters:
   mssql:
     # Required: Connection string for the MSSQL database
-    connection_string: "sqlserver://username:password@host:1433?database=otel"
+    connection_string: "sqlserver://username:password@host:1433"
+    
+    # Optional: Database name (can also be specified in connection_string)
+    database: "otel"
+    
+    # Optional: Prefix for all table names
+    # If set to "otel_", tables will be named "otel_Resources", "otel_Spans", etc.
+    table_prefix: ""
     
     # Optional: Maximum number of records to insert in a single batch
     # Default: 1000
@@ -24,7 +31,7 @@ exporters:
 
 ## Database Schema
 
-The exporter requires the following database schema to be created in your MSSQL database. You can find the complete schema in [schema.sql](schema.sql).
+The exporter requires the following database schema to be created in your MSSQL database. You can find the complete schema in [schema.sql](src/schema.sql).
 
 ### Tables
 
@@ -53,6 +60,8 @@ The exporter requires the following database schema to be created in your MSSQL 
 - **Transaction Support**: Each push operation is wrapped in a database transaction for data consistency
 - **Retry Support**: Built-in retry mechanism for handling transient failures
 - **Full Telemetry Support**: Exports traces, logs, and metrics
+- **Table Prefix Support**: Configure custom table name prefixes for multi-tenant deployments
+- **Flexible Database Configuration**: Specify database separately or in connection string
 
 ## Supported Metric Types
 
@@ -76,7 +85,9 @@ processors:
 
 exporters:
   mssql:
-    connection_string: "sqlserver://sa:YourStrong@Passw0rd@localhost:1433?database=otel"
+    connection_string: "sqlserver://sa:YourStrong@Passw0rd@localhost:1433"
+    database: "otel"
+    table_prefix: "otel_"
     batch_size: 1000
 
 service:
@@ -113,4 +124,4 @@ go test ./...
 
 ## License
 
-Apache-2.0
+MIT
