@@ -78,6 +78,28 @@ func TestConfigValidate(t *testing.T) {
 			wantErr: true,
 			errMsg:  "batch_size must be greater than 0",
 		},
+		{
+			name: "invalid table prefix - special characters",
+			config: Config{
+				ConnectionString: "sqlserver://user:pass@localhost:1433",
+				TablePrefix:      "otel-prefix!",
+				BatchSize:        1000,
+				RetrySettings:    configretry.NewDefaultBackOffConfig(),
+			},
+			wantErr: true,
+			errMsg:  "table_prefix must contain only alphanumeric characters and underscores",
+		},
+		{
+			name: "invalid table prefix - SQL injection attempt",
+			config: Config{
+				ConnectionString: "sqlserver://user:pass@localhost:1433",
+				TablePrefix:      "'; DROP TABLE Resources; --",
+				BatchSize:        1000,
+				RetrySettings:    configretry.NewDefaultBackOffConfig(),
+			},
+			wantErr: true,
+			errMsg:  "table_prefix must contain only alphanumeric characters and underscores",
+		},
 	}
 
 	for _, tt := range tests {
