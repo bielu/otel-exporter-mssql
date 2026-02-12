@@ -238,8 +238,8 @@ func (e *mssqlExporter) insertSpans(ctx context.Context, tx *sql.Tx, resourceID 
 
 		var parentSpanIDBytes interface{}
 		if !parentSpanID.IsEmpty() {
-			b := parentSpanID
-			parentSpanIDBytes = b[:]
+			parentID := parentSpanID
+			parentSpanIDBytes = parentID[:]
 		}
 
 		startTime := span.StartTimestamp().AsTime()

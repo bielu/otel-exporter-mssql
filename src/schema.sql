@@ -121,40 +121,40 @@ CREATE TABLE [MetricDataPointAttributes] (
 )
 GO
 
-CREATE INDEX [ResourceAttributes_index_0] ON [ResourceAttributes] ("AttrKey")
+CREATE INDEX [idx_ResourceAttributes_AttrKey] ON [ResourceAttributes] ("AttrKey")
 GO
 
-CREATE INDEX [Spans_index_1] ON [Spans] ("ResourceId", "StartTime")
+CREATE INDEX [idx_Spans_ResourceId_StartTime] ON [Spans] ("ResourceId", "StartTime")
 GO
 
-CREATE INDEX [Spans_index_2] ON [Spans] ("DurationNs")
+CREATE INDEX [idx_Spans_DurationNs] ON [Spans] ("DurationNs")
 GO
 
-CREATE INDEX [Spans_index_3] ON [Spans] ("StatusCode")
+CREATE INDEX [idx_Spans_StatusCode] ON [Spans] ("StatusCode")
 GO
 
-CREATE INDEX [SpanAttributes_index_4] ON [SpanAttributes] ("AttrKey")
+CREATE INDEX [idx_SpanAttributes_AttrKey] ON [SpanAttributes] ("AttrKey")
 GO
 
-CREATE INDEX [SpanEventAttributes_index_5] ON [SpanEventAttributes] ("AttrKey")
+CREATE INDEX [idx_SpanEventAttributes_AttrKey] ON [SpanEventAttributes] ("AttrKey")
 GO
 
-CREATE INDEX [Logs_index_6] ON [Logs] ("ResourceId", "Timestamp")
+CREATE INDEX [idx_Logs_ResourceId_Timestamp] ON [Logs] ("ResourceId", "Timestamp")
 GO
 
-CREATE INDEX [Logs_index_7] ON [Logs] ("TraceId")
+CREATE INDEX [idx_Logs_TraceId] ON [Logs] ("TraceId")
 GO
 
-CREATE INDEX [Logs_index_8] ON [Logs] ("SeverityNumber")
+CREATE INDEX [idx_Logs_SeverityNumber] ON [Logs] ("SeverityNumber")
 GO
 
-CREATE INDEX [LogAttributes_index_9] ON [LogAttributes] ("AttrKey")
+CREATE INDEX [idx_LogAttributes_AttrKey] ON [LogAttributes] ("AttrKey")
 GO
 
-CREATE INDEX [Metrics_index_10] ON [Metrics] ("ResourceId", "MetricName")
+CREATE INDEX [idx_Metrics_ResourceId_MetricName] ON [Metrics] ("ResourceId", "MetricName")
 GO
 
-CREATE INDEX [MetricDataPointAttributes_index_11] ON [MetricDataPointAttributes] ("AttrKey")
+CREATE INDEX [idx_MetricDataPointAttributes_AttrKey] ON [MetricDataPointAttributes] ("AttrKey")
 GO
 
 ALTER TABLE [ResourceAttributes] ADD FOREIGN KEY ([ResourceId]) REFERENCES [Resources] ([ResourceId])
