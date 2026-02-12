@@ -50,6 +50,211 @@ func (e *mssqlExporter) start(ctx context.Context, _ component.Host) error {
 
 	e.db = db
 	e.logger.Info("Connected to MSSQL database")
+
+	// Create tables if they don't exist
+	if err := e.ensureTablesExist(ctx); err != nil {
+		db.Close()
+		return fmt.Errorf("failed to create tables: %w", err)
+	}
+
+	return nil
+}
+
+// ensureTablesExist creates all required tables if they don't exist.
+func (e *mssqlExporter) ensureTablesExist(ctx context.Context) error {
+	e.logger.Info("Ensuring tables exist", zap.String("table_prefix", e.cfg.TablePrefix))
+
+	// Table definitions with their names for better error reporting
+	tableDefinitions := []struct {
+		name string
+		sql  string
+	}{
+		{
+			name: "Resources",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[ResourceId] bigint PRIMARY KEY IDENTITY(1, 1),
+				[ServiceName] nvarchar(200) NOT NULL
+			)`,
+		},
+		{
+			name: "ResourceAttributes",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[ResourceId] bigint NOT NULL,
+				[AttrKey] nvarchar(200) NOT NULL,
+				[StringValue] nvarchar(max),
+				[IntValue] bigint,
+				[DoubleValue] float,
+				[BoolValue] bit,
+				PRIMARY KEY ([ResourceId], [AttrKey])
+			)`,
+		},
+		{
+			name: "Spans",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[TraceId] varbinary(16) NOT NULL,
+				[SpanId] varbinary(8) NOT NULL,
+				[ParentSpanId] varbinary(8),
+				[ResourceId] bigint NOT NULL,
+				[SpanName] nvarchar(500) NOT NULL,
+				[SpanKind] tinyint NOT NULL,
+				[StartTime] datetime2(7) NOT NULL,
+				[EndTime] datetime2(7) NOT NULL,
+				[DurationNs] bigint NOT NULL,
+				[StatusCode] tinyint,
+				[StatusMessage] nvarchar(1000),
+				[TraceState] nvarchar(500),
+				PRIMARY KEY ([TraceId], [SpanId])
+			)`,
+		},
+		{
+			name: "SpanAttributes",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[TraceId] varbinary(16) NOT NULL,
+				[SpanId] varbinary(8) NOT NULL,
+				[AttrKey] nvarchar(200) NOT NULL,
+				[StringValue] nvarchar(max),
+				[IntValue] bigint,
+				[DoubleValue] float,
+				[BoolValue] bit,
+				PRIMARY KEY ([TraceId], [SpanId], [AttrKey])
+			)`,
+		},
+		{
+			name: "SpanEvents",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[EventId] bigint PRIMARY KEY IDENTITY(1, 1),
+				[TraceId] varbinary(16) NOT NULL,
+				[SpanId] varbinary(8) NOT NULL,
+				[EventName] nvarchar(200) NOT NULL,
+				[EventTime] datetime2(7) NOT NULL
+			)`,
+		},
+		{
+			name: "SpanEventAttributes",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[EventId] bigint NOT NULL,
+				[AttrKey] nvarchar(200) NOT NULL,
+				[StringValue] nvarchar(max),
+				[IntValue] bigint,
+				[DoubleValue] float,
+				[BoolValue] bit,
+				PRIMARY KEY ([EventId], [AttrKey])
+			)`,
+		},
+		{
+			name: "Logs",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[LogId] bigint PRIMARY KEY IDENTITY(1, 1),
+				[ResourceId] bigint NOT NULL,
+				[TraceId] varbinary(16),
+				[SpanId] varbinary(8),
+				[Timestamp] datetime2(7) NOT NULL,
+				[SeverityNumber] tinyint,
+				[SeverityText] nvarchar(50),
+				[Body] nvarchar(max)
+			)`,
+		},
+		{
+			name: "LogAttributes",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[LogId] bigint NOT NULL,
+				[AttrKey] nvarchar(200) NOT NULL,
+				[StringValue] nvarchar(max),
+				[IntValue] bigint,
+				[DoubleValue] float,
+				[BoolValue] bit,
+				PRIMARY KEY ([LogId], [AttrKey])
+			)`,
+		},
+		{
+			name: "Metrics",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[MetricId] bigint PRIMARY KEY IDENTITY(1, 1),
+				[ResourceId] bigint NOT NULL,
+				[MetricName] nvarchar(200) NOT NULL,
+				[MetricType] tinyint NOT NULL,
+				[Unit] nvarchar(50),
+				[Description] nvarchar(1000)
+			)`,
+		},
+		{
+			name: "MetricDataPoints",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[DataPointId] bigint PRIMARY KEY IDENTITY(1, 1),
+				[MetricId] bigint NOT NULL,
+				[Timestamp] datetime2(7) NOT NULL,
+				[ValueDouble] float,
+				[ValueLong] bigint,
+				[Count] bigint,
+				[Sum] float
+			)`,
+		},
+		{
+			name: "MetricDataPointAttributes",
+			sql: `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = @p1)
+			CREATE TABLE [%s] (
+				[DataPointId] bigint NOT NULL,
+				[AttrKey] nvarchar(200) NOT NULL,
+				[StringValue] nvarchar(max),
+				[IntValue] bigint,
+				[DoubleValue] float,
+				[BoolValue] bit,
+				PRIMARY KEY ([DataPointId], [AttrKey])
+			)`,
+		},
+	}
+
+	// Execute table creation statements
+	for _, table := range tableDefinitions {
+		tableName := e.cfg.TableName(table.name)
+		stmt := fmt.Sprintf(table.sql, tableName)
+		if _, err := e.db.ExecContext(ctx, stmt, tableName); err != nil {
+			return fmt.Errorf("failed to create table %s: %w", tableName, err)
+		}
+	}
+
+	// Create indexes - using simple index creation that checks existence
+	indexDefinitions := []struct {
+		tableName string
+		indexName string
+		columns   string
+	}{
+		{"ResourceAttributes", "AttrKey", "[AttrKey]"},
+		{"Spans", "ResourceId_StartTime", "[ResourceId], [StartTime]"},
+		{"Spans", "DurationNs", "[DurationNs]"},
+		{"Spans", "StatusCode", "[StatusCode]"},
+		{"SpanAttributes", "AttrKey", "[AttrKey]"},
+		{"SpanEventAttributes", "AttrKey", "[AttrKey]"},
+		{"Logs", "ResourceId_Timestamp", "[ResourceId], [Timestamp]"},
+		{"Logs", "TraceId", "[TraceId]"},
+		{"Logs", "SeverityNumber", "[SeverityNumber]"},
+		{"LogAttributes", "AttrKey", "[AttrKey]"},
+		{"Metrics", "ResourceId_MetricName", "[ResourceId], [MetricName]"},
+		{"MetricDataPointAttributes", "AttrKey", "[AttrKey]"},
+	}
+
+	for _, idx := range indexDefinitions {
+		tableName := e.cfg.TableName(idx.tableName)
+		indexName := fmt.Sprintf("idx_%s_%s", tableName, idx.indexName)
+		stmt := fmt.Sprintf(`IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = @p1 AND object_id = OBJECT_ID(@p2))
+			CREATE INDEX [%s] ON [%s] (%s)`, indexName, tableName, idx.columns)
+		if _, err := e.db.ExecContext(ctx, stmt, indexName, tableName); err != nil {
+			e.logger.Warn("Failed to create index", zap.String("index", indexName), zap.Error(err))
+			// Continue even if index creation fails
+		}
+	}
+
+	e.logger.Info("Tables verified/created successfully")
 	return nil
 }
 

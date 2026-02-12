@@ -31,7 +31,9 @@ exporters:
 
 ## Database Schema
 
-The exporter requires the following database schema to be created in your MSSQL database. You can find the complete schema in [schema.sql](src/schema.sql).
+The exporter automatically creates all required tables and indexes on startup if they don't exist. This means you don't need to manually set up the database schema - just ensure the database exists and the connection has sufficient permissions to create tables.
+
+If you prefer to create the schema manually, you can find the complete schema in [schema.sql](src/schema.sql). When using a `table_prefix`, modify the table names in the schema accordingly.
 
 ### Tables
 
@@ -56,6 +58,7 @@ The exporter requires the following database schema to be created in your MSSQL 
 
 ## Features
 
+- **Automatic Table Creation**: Tables and indexes are automatically created on startup if they don't exist
 - **Batch Processing**: All telemetry data is inserted in batches for improved performance
 - **Transaction Support**: Each push operation is wrapped in a database transaction for data consistency
 - **Retry Support**: Built-in retry mechanism for handling transient failures
