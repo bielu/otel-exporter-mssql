@@ -109,6 +109,54 @@ service:
       exporters: [mssql]
 ```
 
+## Docker
+
+This repository includes a custom OpenTelemetry Collector Docker image with the MSSQL exporter pre-built.
+
+### Quick Start with Docker Compose
+
+The easiest way to get started is using Docker Compose, which sets up both MSSQL Server and the OpenTelemetry Collector:
+
+```bash
+docker compose up -d
+```
+
+This will:
+1. Start a Microsoft SQL Server instance
+2. Create the `otel` database
+3. Build and start the OpenTelemetry Collector with the MSSQL exporter
+
+The collector will be available at:
+- **OTLP gRPC**: `localhost:4317`
+- **OTLP HTTP**: `localhost:4318`
+- **zPages**: `localhost:55679`
+
+### Building the Docker Image
+
+To build the custom collector image manually:
+
+```bash
+docker build -t otelcol-mssql .
+```
+
+### Running the Docker Image
+
+```bash
+docker run -v /path/to/your/config.yaml:/etc/otelcol/config.yaml otelcol-mssql
+```
+
+### Building a Custom Collector
+
+The repository uses the OpenTelemetry Collector Builder (OCB). The build configuration is in `otelcol-builder.yaml`. You can customize the included components by editing this file.
+
+To build locally (requires Go and OCB installed):
+
+```bash
+go install go.opentelemetry.io/collector/cmd/builder@v0.145.0
+builder --config=otelcol-builder.yaml
+./otelcol-mssql/otelcol-mssql --config=otelcol-config.yaml
+```
+
 ## Development
 
 ### Building
