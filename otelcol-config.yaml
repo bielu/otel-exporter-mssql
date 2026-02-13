@@ -1,4 +1,10 @@
 # Example OpenTelemetry Collector configuration with MSSQL exporter
+#
+# WARNING: This configuration is for DEVELOPMENT and TESTING only.
+# For production deployments, use environment variables or secrets management
+# for sensitive values like connection strings and passwords.
+# Example: connection_string: "${env:MSSQL_CONNECTION_STRING}"
+#
 receivers:
   otlp:
     protocols:
@@ -20,6 +26,7 @@ exporters:
     verbosity: detailed
   mssql:
     # Connection string for MSSQL database
+    # For production, use: connection_string: "${env:MSSQL_CONNECTION_STRING}"
     connection_string: "sqlserver://sa:YourStrong@Passw0rd@mssql:1433"
     database: "otel"
     table_prefix: "otel_"
