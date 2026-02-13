@@ -1,0 +1,17 @@
+# Build output
+otelcol-mssql/
+
+# Git
+.git/
+.gitignore
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db

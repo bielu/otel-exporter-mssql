@@ -1,0 +1,53 @@
+# Example OpenTelemetry Collector configuration with MSSQL exporter
+#
+# WARNING: This configuration is for DEVELOPMENT and TESTING only.
+# For production deployments, use environment variables or secrets management
+# for sensitive values like connection strings and passwords.
+# Example: connection_string: "${env:MSSQL_CONNECTION_STRING}"
+#
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 10s
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+
+exporters:
+  debug:
+    verbosity: detailed
+  mssql:
+    # Connection string for MSSQL database
+    # For production, use: connection_string: "${env:MSSQL_CONNECTION_STRING}"
+    connection_string: "sqlserver://sa:YourStrong@Passw0rd@mssql:1433"
+    database: "otel"
+    table_prefix: "otel_"
+    batch_size: 1000
+
+extensions:
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, mssql]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, mssql]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, mssql]
