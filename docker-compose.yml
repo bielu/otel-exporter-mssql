@@ -1,7 +1,7 @@
 services:
   # Microsoft SQL Server
   mssql:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:2025-latest
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=YourStrong@Passw0rd
@@ -17,26 +17,14 @@ services:
       retries: 10
       start_period: 10s
 
-  # Initialize the database
-  mssql-init:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    depends_on:
-      mssql:
-        condition: service_healthy
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        /opt/mssql-tools18/bin/sqlcmd -S mssql -U sa -P "YourStrong@Passw0rd" -C -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'otel') CREATE DATABASE otel"
-        echo "Database 'otel' initialized"
-
   # OpenTelemetry Collector with MSSQL exporter
   otel-collector:
     build:
       context: .
       dockerfile: Dockerfile
     depends_on:
-      mssql-init:
-        condition: service_completed_successfully
+      mssql:
+        condition: service_healthy
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP

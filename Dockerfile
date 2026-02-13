@@ -1,4 +1,9 @@
 # Stage 1: Build the custom OpenTelemetry Collector
+#
+# NOTE: We cannot use the base otel/opentelemetry-collector or otel/opentelemetry-collector-contrib
+# Docker images because they don't include custom/third-party exporters like mssql.
+# Custom components require building a new collector binary using OCB (OpenTelemetry Collector Builder).
+#
 FROM golang:1.25 AS builder
 
 # Install the OpenTelemetry Collector Builder

@@ -122,9 +122,10 @@ docker compose up -d
 ```
 
 This will:
-1. Start a Microsoft SQL Server instance
-2. Create the `otel` database
-3. Build and start the OpenTelemetry Collector with the MSSQL exporter
+1. Start a Microsoft SQL Server 2025 instance
+2. Build and start the OpenTelemetry Collector with the MSSQL exporter
+
+> **Note**: You need to create the `otel` database before the exporter can store data. Connect to SQL Server and run: `CREATE DATABASE otel`
 
 The collector will be available at:
 - **OTLP gRPC**: `localhost:4317`
